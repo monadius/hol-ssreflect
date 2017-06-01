@@ -1,3 +1,7 @@
+.idea/
+*.iml
+gui.xml
+
 # Compiled class file
 *.class
 
