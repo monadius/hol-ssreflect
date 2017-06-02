@@ -1,0 +1,70 @@
+let clear_goalstack() =
+  current_goalstack := [];;
+
+
+let top_goalstate() =
+  if !current_goalstack = [] then
+    (null_meta, [], fun _ [th] -> th)
+  else
+    hd (!current_goalstack);;
+
+
+let raw_print_string str = 
+  ("$begin$" ^ str ^ "$end$");;
+
+
+let raw_string_of_int i = string_of_num i;;
+
+
+let raw_string_of_bool b = if b then "true" else "false";;
+  
+
+let raw_string_of_string str = "\"" ^ str ^ "\"";;
+
+
+let rec raw_string_of_type = 
+  function
+      (Tyapp(name, args)) -> "Tyapp(\"" ^ name ^ "\"[" ^ String.concat "," (map raw_string_of_type args) ^ "])"
+    | (Tyvar v) -> "Tyvar(\"" ^ v ^ "\")";;
+
+
+
+let rec raw_string_of_term =
+  function
+      Var(name,ty) -> "Var(\"" ^ name ^ "\"," ^ raw_string_of_type ty ^ ")"
+    | Const(name,ty) -> "Const(\"" ^ name ^ "\"," ^ raw_string_of_type ty ^ ")"
+    | Comb(f,a) -> "Comb(" ^ raw_string_of_term f ^ "," ^ raw_string_of_term a ^ ")"
+    | Abs(v,b) -> "Abs(" ^ raw_string_of_term v ^ "," ^ raw_string_of_term b ^ ")";;
+
+
+
+
+let raw_string_of_list el_type el_f list =
+  let str = String.concat ";" (map el_f list) in
+    "List(" ^ el_type ^ ",[" ^ str ^ "])";;
+
+
+
+let raw_string_of_thm th =
+  let c = raw_string_of_term (concl th) in
+  let h = raw_string_of_list "Term" raw_string_of_term (hyp th) in
+    "Theorem(" ^ h ^ "," ^ c ^ ")";;
+
+
+
+let raw_string_of_pair f_fst f_snd p =
+  "Pair(" ^ f_fst (fst p) ^ "," ^ f_snd (snd p) ^ ")";;
+
+
+
+let raw_string_of_goal (g:goal) = 
+  let assumptions = raw_string_of_list "Pair(String,Theorem)" (raw_string_of_pair raw_string_of_string raw_string_of_thm) (fst g) in
+  let c = raw_string_of_term (snd g) in
+    "Goal(" ^ assumptions ^ "," ^ c ^ ")";;
+
+
+
+let raw_string_of_goalstate (g:goalstate) =
+  let s (_,b,_) = b in
+  let goals = raw_string_of_list "Goal" raw_string_of_goal (s g) in
+    "Goalstate("^goals^")";;

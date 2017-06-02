@@ -1,27 +1,39 @@
 package edu.pitt.math.hol_ssreflect.ocaml;
 
-import edu.pitt.math.hol_ssreflect.ocaml.CamlEnvironment;
-import edu.pitt.math.hol_ssreflect.ocaml.CamlObject;
-import edu.pitt.math.hol_ssreflect.ocaml.CamlType;
 import edu.pitt.math.hol_ssreflect.core.parser.Parser;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 /**
  * Created by monad on 5/31/17.
  */
 public class ToplevelClientEnvironment extends CamlEnvironment {
-    private HOLLightWrapper caml;
+
     private String output;
 
-    public ToplevelClientEnvironment(String hostName, int port) throws Exception {
-        caml = new HOLLightWrapper(holName);
-//		ocaml = new HOLLightWrapper("dmtcp_restart", "/home/monad/hol_light_ckpts/cp4_trig_hyp_fan_pack_tame.dmtcp");
-//		ocaml = new HOLLightWrapper("cr_restart", "--no-restore-pid", "-S", "2",
-//					"/home/monad/hol_light_ckpts/cr_current.cr");
-        caml.runCommand("needs \"ocaml/raw_printer.hl\";;");
-        caml.runCommand("needs \"ocaml/ssreflect.hl\";;");
-        caml.runCommand("needs \"ocaml/sections.hl\";;");
-    }
+    private final String hostName;
+    private final int port;
 
+    private Socket socket;
+    private PrintWriter socketOut;
+    private BufferedReader socketIn;
+
+    public ToplevelClientEnvironment(String hostName, int port) throws Exception {
+        this.hostName = hostName;
+        this.port = port;
+
+        connectToServer();
+
+
+//        caml = new HOLLightWrapper(holName);
+//        caml.runCommand("needs \"ocaml/raw_printer.hl\";;");
+//        caml.runCommand("needs \"ocaml/ssreflect.hl\";;");
+//        caml.runCommand("needs \"ocaml/sections.hl\";;");
+    }
 
     @Override
     public CamlObject execute(String command) throws Exception {
@@ -32,7 +44,7 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
     @Override
     public String runCommand(String rawCommand) throws Exception {
         System.out.println("Executing: " + rawCommand);
-        output = caml.runCommand(rawCommand);
+        output = runRemoteCommand(rawCommand);
         System.out.println("Output: " + output);
 
         return output;
@@ -47,7 +59,7 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         command = escape(command);
         System.out.println("Executing: " + command);
 
-        output = caml.runCommand(command);
+        output = runRemoteCommand(command);
         String testString = output;
 
         if (testString.length() > 1000) {
@@ -82,7 +94,7 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
     }
 
     private static String unescapeOCamlString(String str) {
-        StringBuffer out = new StringBuffer(str.length());
+        StringBuilder out = new StringBuilder(str.length());
         int n = str.length();
 
         for (int i = 0; i < n; i++) {
@@ -98,10 +110,10 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
                 char next = str.charAt(i);
                 switch (next) {
                     case '"':
-                        out.append(ch);
+                        out.append(next);
                         break;
                     case '\\':
-                        out.append(ch);
+                        out.append(next);
                         break;
                     case 'n':
                         out.append('\n');
@@ -144,8 +156,7 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
                         out.append((char) code);
                         break;
                 }
-            }
-            else {
+            } else {
                 out.append(ch);
             }
         }
@@ -158,8 +169,9 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         int i1 = str.indexOf("$begin$");
         int i2 = str.indexOf("$end$");
 
-        if (i2 <= i1)
+        if (i2 <= i1) {
             return null;
+        }
 
         return str.substring(i1 + "$begin".length() + 1, i2);
     }
@@ -170,4 +182,27 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         return output;
     }
 
+    private void connectToServer() throws IOException {
+        System.out.println("Connecting to the server " + hostName + ":" + port);
+
+        socket = new Socket(hostName, port);
+        socketOut = new PrintWriter(socket.getOutputStream(), true);
+        socketIn = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+    }
+
+    private String runRemoteCommand(String cmd) throws IOException {
+        if (socketOut == null || socketIn == null) {
+            System.err.println("No conncection");
+            return "";
+        }
+
+        socketOut.println(cmd);
+        String result = socketIn.readLine();
+
+        if (result == null) {
+            return "";
+        }
+
+        return unescapeOCamlString(result);
+    }
 }

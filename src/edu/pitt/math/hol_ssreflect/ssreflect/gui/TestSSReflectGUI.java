@@ -33,6 +33,7 @@ import edu.pitt.math.hol_ssreflect.ocaml.CamlEnvironment;
 import edu.pitt.math.hol_ssreflect.core.Goalstate;
 import edu.pitt.math.hol_ssreflect.core.printer.TermPrinterData;
 import edu.pitt.math.hol_ssreflect.ocaml.DebugEnvironment;
+import edu.pitt.math.hol_ssreflect.ocaml.ToplevelClientEnvironment;
 import edu.pitt.math.hol_ssreflect.ssreflect.parser.Compiler;
 import edu.pitt.math.hol_ssreflect.ssreflect.parser.Interpreter;
 
@@ -619,7 +620,17 @@ public class TestSSReflectGUI extends JFrame implements Configuration.Saver, Act
 	public static void main(String[] args) throws Exception {
 		TermPrinterData.init();
 		
-		final CamlEnvironment caml = new DebugEnvironment();
+//		final CamlEnvironment caml = new DebugEnvironment();
+		CamlEnvironment caml0;
+
+		try {
+			caml0 = new ToplevelClientEnvironment("Alexeys-iMac.local", 1501);
+		}
+		catch (Exception e) {
+			System.err.println(e.getMessage());
+			caml0 = new DebugEnvironment();
+		}
+
 /*
 		String holName = "hol_light";
 		if (args.length >= 1) {
@@ -637,7 +648,7 @@ public class TestSSReflectGUI extends JFrame implements Configuration.Saver, Act
 			caml0 = new EmptyCamlEnvironment();
 		}
 */
-//		final CamlEnvironment caml = caml0;
+		final CamlEnvironment caml = caml0;
 		
         SwingUtilities.invokeLater(new Runnable() {
         	public void run() {
