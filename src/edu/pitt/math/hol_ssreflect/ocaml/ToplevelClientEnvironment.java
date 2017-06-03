@@ -56,7 +56,7 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         String printCmd = returnType.getPrintCommand();
         command = "raw_print_string(" + printCmd + "(" + command + "));;";
 
-        command = escape(command);
+//        command = escape(command);
         System.out.println("Executing: " + command);
 
         output = runRemoteCommand(command);
@@ -88,6 +88,57 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
             }
 
             out.append(ch);
+        }
+
+        return out.toString();
+    }
+
+    private static String escapeString(String str) {
+        StringBuilder out = new StringBuilder(str.length() * 2);
+        int n = str.length();
+
+        for (int i = 0; i < n; i++) {
+            char ch = str.charAt(i);
+            if (ch < 0 || ch >= 256) {
+                System.err.println("[ERROR] escapeString: Bad character: '" + ch + "' in " + str);
+                out.append('$');
+                continue;
+            }
+
+            switch (ch) {
+                case '"':
+                    out.append('\\');
+                    out.append('"');
+                    break;
+                case '\\':
+                    out.append('\\');
+                    out.append('\\');
+                    break;
+                case '\n':
+                    out.append('\\');
+                    out.append('n');
+                    break;
+                case '\t':
+                    out.append('\\');
+                    out.append('t');
+                    break;
+                case '\r':
+                    out.append('\\');
+                    out.append('r');
+                    break;
+                case '\b':
+                    out.append('\\');
+                    out.append('b');
+                    break;
+                default:
+                    if (ch >= ' ' && ch <= '~') {
+                        out.append(ch);
+                    }
+                    else {
+                        out.append((int) ch);
+                    }
+                    break;
+            }
         }
 
         return out.toString();
@@ -196,7 +247,9 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
             return "";
         }
 
-        socketOut.println(cmd);
+        String escapedCmd = escapeString(cmd);
+        System.out.println("[INFO] escaped command: " + escapedCmd);
+        socketOut.println(escapedCmd);
         String result = socketIn.readLine();
 
         if (result == null) {

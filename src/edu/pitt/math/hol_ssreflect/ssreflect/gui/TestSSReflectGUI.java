@@ -624,7 +624,7 @@ public class TestSSReflectGUI extends JFrame implements Configuration.Saver, Act
 		CamlEnvironment caml0;
 
 		try {
-			caml0 = new ToplevelClientEnvironment("Alexeys-iMac.local", 1501);
+			caml0 = new ToplevelClientEnvironment("Alexeys-iMac.local", 1500);
 		}
 		catch (Exception e) {
 			System.err.println(e.getMessage());
