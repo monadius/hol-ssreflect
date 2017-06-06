@@ -145,6 +145,10 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
     }
 
     private static String unescapeOCamlString(String str) {
+        if (str == null) {
+            return "";
+        }
+
         StringBuilder out = new StringBuilder(str.length());
         int n = str.length();
 
@@ -251,6 +255,11 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         System.out.println("[INFO] escaped command: " + escapedCmd);
         socketOut.println(escapedCmd);
         String result = socketIn.readLine();
+        String stdout = socketIn.readLine();
+        String stderr = socketIn.readLine();
+
+        System.out.println("[INFO] " + unescapeOCamlString(stdout));
+        System.out.println("[INFO] " + unescapeOCamlString(stderr));
 
         if (result == null) {
             return "";

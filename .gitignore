@@ -1,6 +1,8 @@
 .DS_Store
 *.cmo
 *.cmi
+stdout.txt
+stderr.txt
 
 .idea/
 *.iml
