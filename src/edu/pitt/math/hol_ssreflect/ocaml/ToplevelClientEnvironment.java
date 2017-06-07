@@ -14,6 +14,8 @@ import java.net.Socket;
 public class ToplevelClientEnvironment extends CamlEnvironment {
 
     private String output;
+    private String stdOutput = "";
+    private String errOutput = "";
 
     private final String hostName;
     private final int port;
@@ -45,9 +47,9 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
     public String runCommand(String rawCommand) throws Exception {
         System.out.println("Executing: " + rawCommand);
         output = runRemoteCommand(rawCommand);
-        System.out.println("Output: " + output);
+//        System.out.println("Output: " + output);
 
-        return output;
+        return getRawOutput();
     }
 
 
@@ -74,23 +76,6 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         }
 
         return Parser.parse(result);
-    }
-
-
-    private static String escape(String str) {
-        StringBuilder out = new StringBuilder(str.length() * 2);
-        int n = str.length();
-
-        for (int i = 0; i < n; i++) {
-            char ch = str.charAt(i);
-            if (ch == '\\' && i < n - 1 && str.charAt(i + 1) == '"') {
-                out.append('\\');
-            }
-
-            out.append(ch);
-        }
-
-        return out.toString();
     }
 
     private static String escapeString(String str) {
@@ -234,7 +219,13 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
 
     @Override
     public String getRawOutput() {
-        return output;
+        String std = stdOutput + "\n" + errOutput;
+        if (output == null) {
+            return std;
+        }
+        else {
+            return output + "\n" + std;
+        }
     }
 
     private void connectToServer() throws IOException {
@@ -252,14 +243,18 @@ public class ToplevelClientEnvironment extends CamlEnvironment {
         }
 
         String escapedCmd = escapeString(cmd);
-        System.out.println("[INFO] escaped command: " + escapedCmd);
+//        System.out.println("[INFO] escaped command: " + escapedCmd);
         socketOut.println(escapedCmd);
         String result = socketIn.readLine();
         String stdout = socketIn.readLine();
         String stderr = socketIn.readLine();
 
-        System.out.println("[INFO] " + unescapeOCamlString(stdout));
-        System.out.println("[INFO] " + unescapeOCamlString(stderr));
+        stdOutput = unescapeOCamlString(stdout);
+        errOutput = unescapeOCamlString(stderr);
+
+        System.out.println("[INFO] " + stdOutput);
+        System.out.println("[INFO] " + errOutput);
+
 
         if (result == null) {
             return "";
