@@ -617,38 +617,43 @@ public class TestSSReflectGUI extends JFrame implements Configuration.Saver, Act
 	 * Main function
 	 * @param args
 	 */
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		TermPrinterData.init();
+
+		// Default host and port
+		String hostName = "127.0.0.1";
+		int portNumber = 2012;
+
+		if (args.length >= 1) {
+			hostName = args[0];
+		}
+
+		if (args.length >= 2) {
+			try {
+				portNumber = Integer.parseInt(args[1]);
+			}
+			catch (NumberFormatException e) {
+				System.err.println("Bad port number: " + args[1]);
+			}
+		}
 		
 //		final CamlEnvironment caml = new DebugEnvironment();
 		CamlEnvironment caml0;
 
 		try {
-			caml0 = new ToplevelClientEnvironment("Alexeys-iMac.local", 1500);
+			caml0 = new ToplevelClientEnvironment(hostName, portNumber);
 //			caml0 = new ToplevelClientEnvironment("192.168.56.101", 1500);
 		}
 		catch (Exception e) {
 			System.err.println(e.getMessage());
+			String msg = String.format("Cannot connect to a server: %s\n" +
+										"host name: %s; port: %d",
+										e.getMessage(), hostName, portNumber);
+
+			JOptionPane.showMessageDialog(null, msg);
 			caml0 = new DebugEnvironment();
 		}
 
-/*
-		String holName = "hol_light";
-		if (args.length >= 1) {
-			holName = args[0];
-		}
-		
-		CamlEnvironment caml0;
-		
-		try {
-			caml0 = new TestCamlEnvironment(holName);
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, e.getMessage());
-			caml0 = new EmptyCamlEnvironment();
-		}
-*/
 		final CamlEnvironment caml = caml0;
 		
         SwingUtilities.invokeLater(new Runnable() {

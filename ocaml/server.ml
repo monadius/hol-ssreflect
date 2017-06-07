@@ -25,7 +25,7 @@ let redirect old_descr redirect =
     redirect.old_descr <- old_descr;
     redirect.old_descr_dup <- Some (Unix.dup old_descr);
     redirect.new_pos <- Unix.lseek redirect.new_descr 0 Unix.SEEK_CUR;
-    Unix.dup2 redirect.new_descr old_descr;;
+    Unix.dup2 redirect.new_descr old_descr
 
 let restore redirect =
   match redirect.old_descr_dup with
@@ -33,7 +33,7 @@ let restore redirect =
   | Some descr ->
     redirect.old_descr_dup <- None;
     Unix.dup2 descr redirect.old_descr;
-    Unix.close descr;;
+    Unix.close descr
 
 let rec really_read fd buffer start length =
   if length <= 0 then () else
@@ -54,8 +54,7 @@ let read_redirected redirect =
   with exn ->
     Printf.eprintf "Error reading the redirected file: %s"
       (Printexc.to_string exn);
-    "";;
-
+    ""
 
 let write_to_string writer =
   let sbuff = ref "" in
@@ -63,11 +62,12 @@ let write_to_string writer =
     flush () = () in
   let fmt = Format.make_formatter output flush in
   ignore (Format.pp_set_max_boxes fmt 100);
-  fun arg -> ignore (writer fmt arg);
+  fun arg -> 
+    let result = writer fmt arg in
     ignore (Format.pp_print_flush fmt ());
     let s = !sbuff in
     let () = sbuff := "" in
-    s;;
+    (result, s)
 
 let starts_with str ~prefix =
   let n = String.length prefix in
@@ -75,34 +75,39 @@ let starts_with str ~prefix =
   else
     String.sub str 0 n = prefix    
 
-let exec print_result fmt s = ignore @@ Toploop.execute_phrase print_result fmt
-  @@ Toploop.preprocess_phrase fmt @@ !Toploop.parse_toplevel_phrase @@ Lexing.from_string s;;
+let exec print_result fmt cmd = 
+  let lb = Lexing.from_string cmd in
+  let p1 = !Toploop.parse_toplevel_phrase lb in
+  let p2 = Toploop.preprocess_phrase fmt p1 in
+  Toploop.execute_phrase print_result fmt p2
 
+(*
 let exec2 print_result fmt s = ignore @@ Toploop.execute_phrase print_result fmt
-  @@ !Toploop.parse_toplevel_phrase @@ Lexing.from_string s;;
+  @@ !Toploop.parse_toplevel_phrase @@ Lexing.from_string s
+*)
 
-let __strBuffer = ref "";;
+let __strBuffer = ref ""
 
 let execute_string_cmd cmd =
   let full_cmd = "Server.__strBuffer := " ^ cmd in
-  exec false Format.std_formatter full_cmd;
-  !__strBuffer;;
+  let result = exec false Format.std_formatter full_cmd in
+  (result, !__strBuffer)
 
-let new_stdout = create_redirected_descr "stdout.txt";;
-let new_stderr = create_redirected_descr "stderr.txt";;
+let new_stdout = create_redirected_descr "stdout.txt"
+let new_stderr = create_redirected_descr "stderr.txt"
 
 let try_finally (f, finally) arg =
   let result = try f arg with exn -> finally (); raise exn in
   finally (); 
-  result;;
+  result
 
-let hol_service exit_flag ic oc =
+let toploop_service exit_flag ic oc =
   Format.printf "[START] Connection open@.";
   let process_input input =
     if starts_with input ~prefix:"raw_print_string" then
-      execute_string_cmd input
+      snd (execute_string_cmd input)
     else
-      write_to_string (exec true) input in
+      snd (write_to_string (exec true) input) in
   try while true do
       let raw_input = input_line ic in
       let s = 
@@ -125,7 +130,7 @@ let hol_service exit_flag ic oc =
           Format.eprintf "[ERROR] %s@." exn_str; 
           Format.sprintf "Error: %s" exn_str 
       end in
-(*      Format.printf "Output (%d): %s@." (String.length r) r;*)
+      (*      Format.printf "Output (%d): %s@." (String.length r) r;*)
       let stdout_str = read_redirected new_stdout in
       let stderr_str = read_redirected new_stderr in
       output_string oc (String.escaped r ^ "\n"); 
@@ -137,52 +142,73 @@ let hol_service exit_flag ic oc =
     done
   with _ -> 
     Format.printf "[STOP] Connection closed@."; 
-    if exit_flag then exit 0;;
+    if exit_flag then exit 0
 
 let string_of_sockaddr = function
   | Unix.ADDR_UNIX s -> s
-  | Unix.ADDR_INET (inet_addr, _) -> Unix.string_of_inet_addr inet_addr;;
+  | Unix.ADDR_INET (inet_addr, _) -> Unix.string_of_inet_addr inet_addr
 
-let establish_single_server server_fun sockaddr =
+let establish_forkless_server server_fun sockaddr =
   let domain = Unix.domain_of_sockaddr sockaddr in
   let sock = Unix.socket domain Unix.SOCK_STREAM 0 in
-  Unix.bind sock sockaddr;
-  Format.printf "Listening: %s@." (string_of_sockaddr sockaddr);
-  Unix.listen sock 1;
-  while true do
-    let (s, caller) = Unix.accept sock in
-    Format.printf "Connection from: %s@." (string_of_sockaddr caller);
-    let inchan = Unix.in_channel_of_descr s in
-    let outchan = Unix.out_channel_of_descr s in
-    server_fun inchan outchan;
-    (*    close_in inchan;
-          close_out outchan; *)
-    Unix.close s
-  done;;
+  try
+    Unix.bind sock sockaddr;
+    Unix.listen sock 1;
+    while true do
+      let (s, caller) = Unix.accept sock in
+      Format.printf "Connection from: %s@." (string_of_sockaddr caller);
+      let inchan = Unix.in_channel_of_descr s in
+      let outchan = Unix.out_channel_of_descr s in
+      let finally () =
+        (* close_out closes the file descriptor so Unix.close s should not be called *)
+        close_out outchan;
+        (* close_in is not necessary *)
+        close_in_noerr inchan in
+      try_finally (server_fun inchan, finally) outchan;
+    done
+  with Sys.Break ->
+    Unix.close sock;
+    Format.printf "[STOP] Server stopped@."
+
+let string_of_sockaddr = function
+  | Unix.ADDR_UNIX s -> s
+  | Unix.ADDR_INET (inet_addr, _) -> Unix.string_of_inet_addr inet_addr  
 
 let get_my_addr () =
   let host = Unix.gethostbyname (Unix.gethostname ()) in
-  host.Unix.h_addr_list.(0);;
+  host.Unix.h_addr_list.(0)
 
-let main_server_with_forks (serv_fun, port) =
-  let my_address = get_my_addr() in
-  (*      let my_address = Unix.inet_addr_of_string "127.0.0.1" in *)
-  Format.printf "Port number: %d@." port;
+let main_server_with_forks serv_fun address port =
+  Format.printf "Host name: %s; port number: %d@." 
+    (Unix.string_of_inet_addr address) port;
   flush_all();
-  Unix.establish_server serv_fun (Unix.ADDR_INET (my_address, port));;
+  Unix.establish_server serv_fun (Unix.ADDR_INET (address, port))
 
-let main_server_without_forks (serv_fun, port) =
-  let my_address = get_my_addr() in
-  Format.printf "Port number: %d (no forks)@." port;
+let main_server_without_forks serv_fun address port =
+  Format.printf "Host name: %s; port number: %d (no forks)@." 
+    (Unix.string_of_inet_addr address) port;
   flush_all();
-  establish_single_server serv_fun (Unix.ADDR_INET (my_address, port));;
+  establish_forkless_server serv_fun (Unix.ADDR_INET (address, port))
 
-let port = ref 1499;;
+let start_server ?(host_name = "127.0.0.1") ?(port = 2012) use_forks =
+  Sys.catch_break true;
+  let address = 
+    if host_name = "" then get_my_addr()
+    else Unix.inet_addr_of_string host_name in
+  let start () = 
+    if use_forks then
+      main_server_with_forks (toploop_service true) address port
+    else
+      main_server_without_forks (toploop_service false) address port in
+  Unix.handle_unix_error start ()
 
-let main1 () = 
+
+let port = ref 2011
+
+let test1 () = 
   incr port;
-  Unix.handle_unix_error main_server_with_forks ((hol_service true), !port);;
+  start_server ~port:!port true
 
-let main2() =
+let test2 () =
   incr port;
-  Unix.handle_unix_error main_server_without_forks ((hol_service false), !port);;
+  start_server ~port:!port false

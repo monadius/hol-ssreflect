@@ -3,4 +3,4 @@
 #load "unix.cma";;
 #load "server.cmo";;
 
-Server.main2();
+Server.test2();
