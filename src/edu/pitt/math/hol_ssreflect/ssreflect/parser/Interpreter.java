@@ -173,7 +173,8 @@ public class Interpreter {
                     out.contains("Unbound value") ||
                     out.contains("Exception:") ||
                     out.contains("Parse error") ||
-                    out.contains("Error: ")) {
+                    out.contains("Error: ") ||
+                    out.contains("Interrupted")) {
                 throw new Exception("Command failed: " + out);
             }
 

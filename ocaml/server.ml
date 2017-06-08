@@ -4,6 +4,15 @@
 
 (*#load "ocamlcommon.cma"*)
 
+exception Timeout
+
+let set_timeout, get_timeout =
+  let timeout = ref 20 in
+  (fun t -> timeout := t),
+  (fun () -> !timeout)
+
+let () = Sys.set_signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout))
+
 type redirected_descr = {
   new_descr : Unix.file_descr;
   mutable new_pos : int;
@@ -118,22 +127,29 @@ let toploop_service exit_flag ic oc =
       let r = begin
         try
           let finally () = 
+            ignore (Unix.alarm 0);
             Format.pp_flush_formatter Format.std_formatter;
             Format.pp_flush_formatter Format.err_formatter;
             flush stdout; flush stderr;
             restore new_stdout; restore new_stderr in
           redirect Unix.stdout new_stdout;
           redirect Unix.stderr new_stderr;
+          (* Set timeout for special commands only (we don't want to interrupt "needs", etc.) *)
+          let set_alarm = starts_with s ~prefix:"raw_print_string" ||
+                          starts_with s ~prefix:"refine" in
+          let timeout = get_timeout () in
+          if timeout > 0 && set_alarm then ignore (Unix.alarm timeout);
           try_finally (process_input, finally) s
         with exn ->
-          let exn_str = Printexc.to_string exn in
+          let exn_str = 
+            if exn = Timeout then "timeout" else Printexc.to_string exn in
           Format.eprintf "[ERROR] %s@." exn_str; 
           Format.sprintf "Error: %s" exn_str 
       end in
-      (*      Format.printf "Output (%d): %s@." (String.length r) r;*)
+(*      Format.printf "Output (%d): %s@." (String.length r) r; *)
       let stdout_str = read_redirected new_stdout in
       let stderr_str = read_redirected new_stderr in
-      output_string oc (String.escaped r ^ "\n"); 
+      output_string oc (String.escaped r ^ "\n");
       output_string oc ("stdout:" ^ String.escaped stdout_str ^ "\n");
       output_string oc ("stderr:" ^ String.escaped stderr_str ^ "\n");
       flush oc;
@@ -170,10 +186,6 @@ let establish_forkless_server server_fun sockaddr =
     Unix.close sock;
     Format.printf "[STOP] Server stopped@."
 
-let string_of_sockaddr = function
-  | Unix.ADDR_UNIX s -> s
-  | Unix.ADDR_INET (inet_addr, _) -> Unix.string_of_inet_addr inet_addr  
-
 let get_my_addr () =
   let host = Unix.gethostbyname (Unix.gethostname ()) in
   host.Unix.h_addr_list.(0)
@@ -190,7 +202,7 @@ let main_server_without_forks serv_fun address port =
   flush_all();
   establish_forkless_server serv_fun (Unix.ADDR_INET (address, port))
 
-let start_server ?(host_name = "127.0.0.1") ?(port = 2012) use_forks =
+let start ?(host_name = "127.0.0.1") ?(port = 2012) use_forks =
   Sys.catch_break true;
   let address = 
     if host_name = "" then get_my_addr()
@@ -207,8 +219,8 @@ let port = ref 2011
 
 let test1 () = 
   incr port;
-  start_server ~port:!port true
+  start ~port:!port true
 
 let test2 () =
   incr port;
-  start_server ~port:!port false
+  start ~port:!port false
