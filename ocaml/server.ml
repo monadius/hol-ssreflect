@@ -67,16 +67,15 @@ let read_redirected redirect =
 
 let write_to_string writer =
   let sbuff = ref "" in
-  let output s m n = sbuff := !sbuff ^ String.sub s m n and
-    flush () = () in
+  let output s m n = sbuff := !sbuff ^ String.sub s m n in
+  let flush () = () in
   let fmt = Format.make_formatter output flush in
-  ignore (Format.pp_set_max_boxes fmt 100);
-  fun arg -> 
+  Format.pp_set_max_boxes fmt 100;
+  fun arg ->
+    sbuff := ""; 
     let result = writer fmt arg in
-    ignore (Format.pp_print_flush fmt ());
-    let s = !sbuff in
-    let () = sbuff := "" in
-    (result, s)
+    Format.pp_print_flush fmt ();
+    (result, !sbuff)
 
 let starts_with str ~prefix =
   let n = String.length prefix in
