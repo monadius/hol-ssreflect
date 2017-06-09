@@ -1,4 +1,4 @@
-HOL-SSReflect (or SSReflect/HOL Light) is a language for formalizing mathematics 
+*HOL-SSReflect* (or *SSReflect/HOL Light*) is a language for formalizing mathematics 
 in the HOL Light proof assistant. It was inspired by the SSReflect language in Coq.
 
 Several non-trivial results were proved with HOL-SSReflect in the 
