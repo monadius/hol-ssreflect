@@ -19,7 +19,7 @@ Several non-trivial results were proved with HOL-SSReflect in the
 
 1) Run `./gradlew make`.
 
-1) Go to the `ocaml` directory and run `make`.
+1) Go to the [`ocaml`](ocaml) directory and run `make`.
 
 2) Go to the HOL Light directory and create the file `server.hl` with the following content:
 ```

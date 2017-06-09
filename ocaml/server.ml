@@ -127,8 +127,8 @@ let toploop_service exit_flag ic oc =
         try
           let finally () = 
             ignore (Unix.alarm 0);
-            Format.pp_flush_formatter Format.std_formatter;
-            Format.pp_flush_formatter Format.err_formatter;
+            Format.pp_print_flush Format.std_formatter ();
+            Format.pp_print_flush Format.err_formatter ();
             flush stdout; flush stderr;
             restore new_stdout; restore new_stderr in
           redirect Unix.stdout new_stdout;
@@ -145,7 +145,7 @@ let toploop_service exit_flag ic oc =
           Format.eprintf "[ERROR] %s@." exn_str; 
           Format.sprintf "Error: %s" exn_str 
       end in
-(*      Format.printf "Output (%d): %s@." (String.length r) r; *)
+      (*      Format.printf "Output (%d): %s@." (String.length r) r; *)
       let stdout_str = read_redirected new_stdout in
       let stderr_str = read_redirected new_stderr in
       output_string oc (String.escaped r ^ "\n");
@@ -167,6 +167,7 @@ let establish_forkless_server server_fun sockaddr =
   let domain = Unix.domain_of_sockaddr sockaddr in
   let sock = Unix.socket domain Unix.SOCK_STREAM 0 in
   try
+    Unix.setsockopt sock Unix.SO_REUSEADDR true;
     Unix.bind sock sockaddr;
     Unix.listen sock 1;
     while true do
@@ -181,9 +182,14 @@ let establish_forkless_server server_fun sockaddr =
         close_in_noerr inchan in
       try_finally (server_fun inchan, finally) outchan;
     done
-  with Sys.Break ->
+  with 
+  | Unix.Unix_error (Unix.EADDRINUSE, _, _) ->
     Unix.close sock;
-    Format.printf "[STOP] Server stopped@."
+    failwith "Address already in use"
+  | exn ->
+    Unix.close sock;
+    Format.printf "[STOP] Server stopped@.";
+    if exn <> Sys.Break then raise exn
 
 let get_my_addr () =
   let host = Unix.gethostbyname (Unix.gethostname ()) in
@@ -206,12 +212,12 @@ let start ?(host_name = "127.0.0.1") ?(port = 2012) use_forks =
   let address = 
     if host_name = "" then get_my_addr()
     else Unix.inet_addr_of_string host_name in
-  let start () = 
+  let start_server () = 
     if use_forks then
       main_server_with_forks (toploop_service true) address port
     else
       main_server_without_forks (toploop_service false) address port in
-  Unix.handle_unix_error start ()
+  Unix.handle_unix_error start_server ()
 
 
 let port = ref 2011
