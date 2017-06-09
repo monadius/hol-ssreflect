@@ -19,9 +19,9 @@ Several non-trivial results were proved with HOL-SSReflect in the
 
 1) Run `./gradlew make`.
 
-1) Go to the [`ocaml`](ocaml) directory and run `make`.
+2) Go to the [`ocaml`](ocaml) directory and run `make`.
 
-2) Go to the HOL Light directory and create the file `server.hl` with the following content:
+3) Go to the HOL Light directory and create the file `server.hl` with the following content:
 ```
 load_path := "{Absolute path to HOL-SSReflect}/ocaml" :: !load_path;;
 #directory "{Absolute path to HOL-SSReflect}/ocaml";;
@@ -30,13 +30,10 @@ loadt "start_server.hl";;
 Here, `{Absolute path to HOL-SSReflect}` should be replaced with your path to the
 copy of HOL-SSReflect.
 
-3) Load a HOL Light session.
+4) Load a HOL Light session.
 
- - Run
- ```
- ocaml -I `camlp5 -where`
- ```
-
+ - Run ``ocaml -I `camlp5 -where` ``.
+ 
 - Type `#use "hol.ml";;` and press Enter. Wait.
 
 - Load all HOL Light libraries which you need.
@@ -45,7 +42,7 @@ copy of HOL-SSReflect.
 
 - Type `Server.start false;;` and press Enter.
  
-4) Run `bin/HOL-SSReflect` in a new terminal.
+5) Run `bin/hol-ssreflect` in a new terminal.
 
 # Additional info
 
@@ -70,10 +67,10 @@ An example:
 Server.start ~host_name:"my_host" ~port:1500 true;;
 ```
 
-## `bin/HOL-SSReflect`
+## `bin/hol-ssreflect`
 
 ```
-bin/HOL-SSReflect [host_name] [port_number]
+bin/hol-ssreflect [host_name] [port_number]
 ```
 
 The parameters `host_name` and `port_number` can be used to connect to a remote server. 
@@ -84,7 +81,7 @@ to it from a host machine. In this case, you need to set up an appropriate netwo
 between host and the virtual machine. It may be also necessary to start the server 
 (`Server.start`) with a correct `host_name`.
 
-Instead of the `bin/HOL-SSReflect` script, you can run the `jar` file:
+Instead of the `bin/hol-ssreflect` script, you can run the `jar` file:
 ```
-java -jar lib/HOL-SSReflect.jar [host_name] [port_number]
+java -jar lib/hol-ssreflect-1.2.jar [host_name] [port_number]
 ```
