@@ -1,6 +1,6 @@
-needs "raw_printer.hl";;
-needs "sections.hl";;
-needs "ssreflect.hl";;
+needs "ocaml/raw_printer.hl";;
+needs "ocaml/sections.hl";;
+needs "ocaml/ssreflect.hl";;
 
 (* Install universal HOL Light printers *)
 

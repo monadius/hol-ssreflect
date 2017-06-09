@@ -23,9 +23,9 @@ Several non-trivial results were proved with HOL-SSReflect in the
 
 3) Go to the HOL Light directory and create the file `server.hl` with the following content:
 ```
-load_path := "{Absolute path to HOL-SSReflect}/ocaml" :: !load_path;;
 #directory "{Absolute path to HOL-SSReflect}/ocaml";;
-loadt "start_server.hl";;
+load_path := "{Absolute path to HOL-SSReflect}" :: !load_path;;
+loadt "ocaml/start_server.hl";;
 ```
 Here, `{Absolute path to HOL-SSReflect}` should be replaced with your path to the
 copy of HOL-SSReflect.
