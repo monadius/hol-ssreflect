@@ -1,17 +1,25 @@
+HOL-SSReflect (or SSReflect/HOL Light) is a language for formalizing mathematics 
+in the HOL Light proof assistant. It was inspired by the SSReflect language in Coq.
+
+Several non-trivial results were proved with HOL-SSReflect in the 
+[Flyspeck](https://github.com/flyspeck/flyspeck) project.
+
 # Installation
 
 ## Requirements
 
- - Java SDK 1.8
- - OCaml 4.04
- - Camlp5 (required by HOL Light)
- - HOL Light
+ - [Java SDK 1.8](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
+ - [OCaml 4.04](http://ocaml.org/docs/install.html)
+   It is recommended to install it with [OPAM](https://opam.ocaml.org/)
+ - [Camlp5](https://camlp5.github.io/) (required by HOL Light). 
+   `opam install camlp5` is the easiest way to install it.
+ - [HOL Light](https://github.com/jrh13/hol-light)
 
 ## Linux and macOS
 
 1) Run `./gradlew make`.
 
-1) Go to `ocaml` and run `make`.
+1) Go to the `ocaml` directory and run `make`.
 
 2) Go to the HOL Light directory and create the file `server.hl` with the following content:
 ```
