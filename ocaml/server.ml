@@ -109,6 +109,9 @@ let try_finally (f, finally) arg =
   finally (); 
   result
 
+let rec restart_on_EINTR f x =
+  try f x with Unix.Unix_error (Unix.EINTR, _, _) -> restart_on_EINTR f x
+
 let toploop_service exit_flag ic oc =
   Format.printf "[START] Connection open@.";
   let process_input input =
@@ -171,7 +174,7 @@ let establish_forkless_server server_fun sockaddr =
     Unix.bind sock sockaddr;
     Unix.listen sock 1;
     while true do
-      let (s, caller) = Unix.accept sock in
+      let (s, caller) = restart_on_EINTR Unix.accept sock in
       Format.printf "Connection from: %s@." (string_of_sockaddr caller);
       let inchan = Unix.in_channel_of_descr s in
       let outchan = Unix.out_channel_of_descr s in
@@ -191,27 +194,25 @@ let establish_forkless_server server_fun sockaddr =
     Format.printf "[STOP] Server stopped@.";
     if exn <> Sys.Break then raise exn
 
-let get_my_addr () =
-  let host = Unix.gethostbyname (Unix.gethostname ()) in
+let get_host_address host_name =
+  let host = Unix.gethostbyname host_name in
   host.Unix.h_addr_list.(0)
 
 let main_server_with_forks serv_fun address port =
-  Format.printf "Host name: %s; port number: %d@." 
+  Format.printf "Host address: %s; port number: %d@." 
     (Unix.string_of_inet_addr address) port;
   flush_all();
   Unix.establish_server serv_fun (Unix.ADDR_INET (address, port))
 
 let main_server_without_forks serv_fun address port =
-  Format.printf "Host name: %s; port number: %d (no forks)@." 
+  Format.printf "Host address: %s; port number: %d (no forks)@." 
     (Unix.string_of_inet_addr address) port;
   flush_all();
   establish_forkless_server serv_fun (Unix.ADDR_INET (address, port))
 
 let start ?(host_name = "127.0.0.1") ?(port = 2012) use_forks =
   Sys.catch_break true;
-  let address = 
-    if host_name = "" then get_my_addr()
-    else Unix.inet_addr_of_string host_name in
+  let address = get_host_address host_name in
   let start_server () = 
     if use_forks then
       main_server_with_forks (toploop_service true) address port
