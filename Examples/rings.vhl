@@ -1,0 +1,306 @@
+"needs \"Library/grouptheory.ml\"".
+
+Lemma inE : `(!p x. x IN {y | p y} <=> p x) /\
+	(!P x. x IN GSPEC (\v. P (SETSPEC v)) <=> P (\p t. p /\ x = t))`.
+Proof. by rewr !IN_ELIM_THM. Qed.
+
+Lemma ring_def : `?(g:(A)group) m.
+	abelian_group g /\
+	(!x y. x IN group_carrier g /\ y IN group_carrier g ==>
+		m x y IN group_carrier g) /\
+	(!x y z. x IN group_carrier g /\ y IN group_carrier g /\ z IN group_carrier g ==>
+		m (m x y) z = m x (m y z)) /\
+	(!x y z. x IN group_carrier g /\ y IN group_carrier g /\ z IN group_carrier g ==>
+		m (group_mul g x y) z = group_mul g (m x z) (m y z) /\
+		m x (group_mul g y z) = group_mul g (m x y) (m x z))`.
+Proof.
+exists `singleton_group ARB` `\x y. ARB`.
+by rewrite ABELIAN_SINGLETON_GROUP /= !SINGLETON_GROUP !IN_SING.
+Qed.
+
+"let ring_tybij =
+	new_type_definition \"ring\" (\"ring\", \"ring_elements\")
+	(GEN_REWRITE_RULE DEPTH_CONV [EXISTS_UNPAIR_THM] ring_def)".
+
+"let ring_additive_group = new_definition
+	`(ring_additive_group:(A)ring->(A)group) = \r. FST (ring_elements r)`".
+
+"let ring_carrier = new_definition 
+	`(ring_carrier:(A)ring->A->bool) = \r. group_carrier (FST (ring_elements r))`".
+
+"let ring_mul = new_definition
+	`(ring_mul:(A)ring->A->A->A) = \r. SND (ring_elements r)`".
+
+"let ring_add = new_definition
+	`(ring_add:(A)ring->A->A->A) = \r. group_mul (ring_additive_group r)`".
+
+"let ring_zero = new_definition
+	`(ring_zero:(A)ring->A) = \r. group_id (ring_additive_group r)`".
+
+"let ring_add_inv = new_definition
+	`(ring_add_inv:(A)ring->A->A) = \r. group_inv (ring_additive_group r)`".
+
+"let ring_sub = new_definition
+	`(ring_sub:(A)ring->A->A->A) = \r x y. ring_add r x (ring_add_inv r y)`".
+
+Lemma mk_dest_lemma mk dest P : 
+	`(!a. mk (dest a) = a) /\ (!r. P r <=> dest (mk r) = r)
+	==> !a. P (dest a)`.
+Proof.
+move => [mk_dest dest_mk] a.
+by rewrite dest_mk mk_dest.
+Qed.
+
+Section Ring.
+
+Variable R : `:(A)ring`.
+
+Lemma ring_additive_group_abelian : `abelian_group (ring_additive_group R)`.
+Proof. by rewrite ring_additive_group /= (mk_dest_lemma ring_tybij). Qed.
+
+Lemma ring_carrier_eq : `ring_carrier R = group_carrier (ring_additive_group R)`.
+Proof. by rewrite ring_carrier ring_additive_group. Qed.
+
+Lemma ring_mul_in x y : `x IN ring_carrier R /\ y IN ring_carrier R ==>
+	ring_mul R x y IN ring_carrier R`.
+Proof. by rewrite ring_carrier ring_mul /= => h; rewrite (mk_dest_lemma ring_tybij). Qed.
+
+Lemma ring_mul_distrR x y z : 
+	`x IN ring_carrier R /\ y IN ring_carrier R /\  z IN ring_carrier R ==>
+	ring_mul R (ring_add R x y) z = ring_add R (ring_mul R x z) (ring_mul R y z)`.
+Proof.
+rewrite ring_carrier ring_mul ring_add /= => h.
+by rewrite ring_additive_group /= (mk_dest_lemma ring_tybij).
+Qed.
+
+Lemma ring_mul_distrL x y z : 
+	`x IN ring_carrier R /\ y IN ring_carrier R /\  z IN ring_carrier R ==>
+	ring_mul R x (ring_add R y z) = ring_add R (ring_mul R x y) (ring_mul R x z)`.
+Proof.
+rewrite ring_carrier ring_mul ring_add /= => h.
+by rewrite ring_additive_group /= (mk_dest_lemma ring_tybij).
+Qed.
+
+Lemma ring_zero_in : `ring_zero R IN ring_carrier R`.
+Proof. by rewrite ring_zero ring_carrier_eq /= GROUP_ID. Qed.
+
+Section Unary.
+
+Variable x : `:A`.
+Hypothesis x_in : `x IN ring_carrier R`.
+
+Lemma ring_add_0_x : `ring_add R (ring_zero R) x = x`.
+Proof. by rewrite ring_add ring_zero /= GROUP_MUL_LID // -ring_carrier_eq. Qed.
+
+Lemma ring_add_x_0 : `ring_add R x (ring_zero R) = x`.
+Proof. by rewrite ring_add ring_zero /= GROUP_MUL_RID // -ring_carrier_eq. Qed.
+
+End Unary.
+
+Section Triple.
+
+Variables x y z : `:A`.
+Hypothesis x_in : `x IN ring_carrier R`.
+Hypothesis y_in : `y IN ring_carrier R`.
+Hypothesis z_in : `z IN ring_carrier R`.
+
+Lemma ring_add_cancelL : `ring_add R x y = ring_add R x z <=> y = z`.
+Proof. by rewrite ring_add /= GROUP_MUL_LCANCEL // -ring_carrier_eq. Qed.
+
+Lemma ring_add_cancelR : `ring_add R x z = ring_add R y z <=> x = y`.
+Proof. by rewrite ring_add /= GROUP_MUL_RCANCEL // -ring_carrier_eq. Qed.
+
+End Triple.
+
+Section Unary.
+
+Variable x : `:A`.
+Hypothesis x_in : `x IN ring_carrier R`.
+
+Lemma ring_mul_0_x : `ring_mul R (ring_zero R) x = ring_zero R`.
+Proof.
+have: `ring_add R (ring_mul R (ring_zero R) x) (ring_zero R) 
+	= ring_add R (ring_mul R (ring_zero R) x) (ring_mul R (ring_zero R) x)`.
+  by rewrite -ring_mul_distrR ?ring_zero_in // !ring_add_x_0 ?ring_mul_in ?ring_zero_in.
+by rewrite ring_add_cancelL ?(ring_mul_in, ring_zero_in) // => <-.
+Qed.
+
+Lemma ring_mul_x_0 : `ring_mul R x (ring_zero R) = ring_zero R`.
+Proof.
+have: `ring_add R (ring_mul R x (ring_zero R)) (ring_zero R) 
+	= ring_add R (ring_mul R x (ring_zero R)) (ring_mul R x (ring_zero R))`.
+  by rewrite -ring_mul_distrL ?ring_zero_in // !ring_add_x_0 ?ring_mul_in ?ring_zero_in.
+by rewrite ring_add_cancelL ?(ring_mul_in, ring_zero_in) // => <-.
+Qed.
+	
+End Unary.
+
+End Ring.
+
+"let commutative_ring = new_definition 
+	`commutative_ring (R:(A)ring) <=> 
+	!x y. x IN ring_carrier R /\ y IN ring_carrier R ==> ring_mul R x y = ring_mul R y x`".
+
+"let ring_with_1 = new_definition
+	`ring_with_1 (R:(A)ring) <=>
+	?a. a IN ring_carrier R /\ (!x. x IN ring_carrier R ==> ring_mul R a x = x /\ 
+							  ring_mul R x a = x)`".
+
+"let ring_1 = new_definition `ring_1 (R:(A)ring) = @a. a IN ring_carrier R /\
+	(!x. x IN ring_carrier R ==> ring_mul R a x = x /\ ring_mul R x a = x)`".
+
+Section Ring.
+
+Variable R : `:(A)ring`.
+
+Lemma ring_with_1_1 : `ring_with_1 R ==> ring_1 R IN ring_carrier R /\
+	(!x. x IN ring_carrier R ==> ring_mul R (ring_1 R) x = x /\
+				  ring_mul R x (ring_1 R) = x)`.
+Proof. by rewrite ring_with_1 ring_1; "MESON_TAC[]". Qed.
+
+Lemma ring_1_unique a : `ring_with_1 R /\ a IN ring_carrier R /\
+	(!x. x IN ring_carrier R ==> ring_mul R a x = x) ==> a = ring_1 R`.
+Proof. by move => [R1] [a_in] /(_ `ring_1 R`); rewrite !(ring_with_1_1 R1). Qed.
+
+End Ring.
+
+"parse_as_infix (\"subring_of\", (12, \"right\"))".
+
+"let subring_of = new_definition
+	`(r:A->bool) subring_of (R:(A)ring) <=>
+	r subgroup_of (ring_additive_group R) /\
+	(!x y. x IN r /\ y IN r ==> ring_mul R x y IN r)`".
+
+"let subring_generated = new_definition
+	`subring_generated R (s:A->bool) =
+		ring(group(INTERS {h | h subring_of R /\ (ring_carrier R INTER s) SUBSET h},
+			ring_zero R, ring_add_inv R, ring_add R), ring_mul R)`".
+
+"parse_as_infix (\"ideal_of\", (12, \"right\"))".
+
+"let ideal_of = new_definition
+	`(J:A->bool) ideal_of (R:(A)ring) <=> 
+	J subring_of R /\
+	(!a x. a IN J /\ x IN ring_carrier R ==> 
+		ring_mul R a x IN J /\ ring_mul R x a IN J)`".
+
+"let ring_setmul = new_definition
+	`ring_setmul (R:(A)ring) J K = {ring_mul R x y | x IN J /\ y IN K}`".
+
+"let quotient_ring = new_definition
+	`quotient_ring R (J:A->bool) =
+	ring(quotient_group (ring_additive_group R) J, ring_setmul R)`".
+
+"let ring_homomorphism = new_definition 
+	`ring_homomorphism (R, R') (f:A->B) <=>
+	 group_homomorphism (ring_additive_group R, ring_additive_group R') f /\
+	 (!x y. x IN ring_carrier R /\ y IN ring_carrier R ==>
+		f (ring_mul R x y) = ring_mul R' (f x) (f y))`".
+
+"let ring_isomorphisms = new_definition
+	`ring_isomorphisms (R, R') ((f:A->B), g) <=>
+	ring_homomorphism (R, R') f /\
+	group_isomorphisms (ring_additive_group R, ring_additive_group R') (f, g)`".
+
+"let ring_isomorphism = new_definition
+	`ring_isomorphism (R, R') (f:A->B) <=>
+	?g. ring_isomorphisms (R, R') (f, g)`".
+
+"let ring_kernel = new_definition
+	`ring_kernel (R, R') (f:A->B) = {x | x IN ring_carrier R /\ f x = ring_zero R'}`".
+
+Section Ring.
+
+Variable R : `:(A)ring`.
+Variable J : `:A->bool`.
+
+Hypothesis ideal : `J ideal_of R`.
+
+Lemma ring_setmul_eq x y : `ring_setmul R (right_coset (ring_additive_group R) J x)
+				      (right_coset (ring_additive_group R) J y)
+	= right_coset (ring_additive_group R) J (ring_mul R x y)`.
+Proof.
+rewrite ring_setmul !right_coset !group_setmul -SUBSET_ANTISYM_EQ !SUBSET; split.
+
+move => a.
+rewrite !inE /=.
+
+Lemma quotient_ring_mul : `ring_mul (quotient_ring R J) = ring_setmul R`.
+Proof.
+
+End Ring.
+
+Section Rings.
+
+Variable R : `:(A)ring`.
+Variable R' : `:(B)ring`.
+
+Lemma ring_isomorphisms_inv_homomorphism f g : `ring_isomorphisms (R, R') (f, g)
+	==> ring_homomorphism (R', R) g`.
+Proof.
+rewrite ring_isomorphisms !ring_homomorphism group_isomorphisms -!ring_carrier_eq.
+move => [] [_ f_mul] [_] [hg] [gf fg].
+rewrite hg => /= x y [x_in y_in].
+have g_in: `g x IN ring_carrier R /\ g y IN ring_carrier R`.
+  move: hg.
+  rewrite group_homomorphism SUBSET -!ring_carrier_eq => [] [in_h] _.
+  by split; apply: in_h; rewrite IN_IMAGE; [exists `x` | exists `y`].
+by rewrite -(gf `ring_mul R (g x) (g y)`) ?ring_mul_in // f_mul // !fg.
+Qed.
+
+Variable f : `:A->B`.
+
+Lemma ring_kernel_eq_group_kernel : 
+  `ring_kernel (R, R') f = group_kernel (ring_additive_group R, ring_additive_group R') f`.
+Proof. by rewrite ring_kernel group_kernel -ring_carrier_eq ring_zero. Qed.
+
+Hypothesis f_hom : `ring_homomorphism (R, R') f`.
+
+Lemma ring_hom_imp_group_hom : 
+	`group_homomorphism (ring_additive_group R, ring_additive_group R') f`.
+Proof. by rewrite ring_homomorphism in f_hom. Qed.
+
+Lemma ring_hom_in x : `x IN ring_carrier R ==> f x IN ring_carrier R'`.
+Proof. 
+rewrite ring_homomorphism group_homomorphism SUBSET in f_hom.
+move => x_in.
+rewrite ring_carrier_eq f_hom IN_IMAGE.
+by exists x; rewrite -ring_carrier_eq.
+Qed.
+
+Lemma ring_hom_mul x y : `x IN ring_carrier R /\ y IN ring_carrier R ==>
+	f (ring_mul R x y) = ring_mul R' (f x) (f y)`.
+Proof. by rewrite ring_homomorphism in f_hom. Qed.
+
+Lemma ring_kernel_subring : `ring_kernel (R, R') f subring_of R`.
+Proof.
+rewrite subring_of; split => [|x y].
+  apply: NORMAL_SUBGROUP_IMP_SUBGROUP.
+  by rewrite ring_kernel_eq_group_kernel NORMAL_SUBGROUP_GROUP_KERNEL ring_hom_imp_group_hom.
+rewrite ring_kernel !inE => [] [xh yh].
+by rewrite ring_mul_in //= ring_hom_mul // xh ring_mul_0_x // ring_hom_in.
+Qed.
+
+Lemma ring_kernel_ideal : `ring_kernel (R, R') f ideal_of R`.
+Proof.
+rewrite ideal_of ring_kernel_subring /= ring_kernel !inE => a x [ah x_in].
+rewrite !ring_mul_in //= !ring_hom_mul // ah.
+by rewrite ring_mul_x_0 ?ring_mul_0_x // ring_hom_in.
+Qed.
+
+Lemma ring_image_subring : `IMAGE f (ring_carrier R) subring_of R'`.
+Proof.
+rewrite subring_of; split => [|x y].
+  rewrite ("GEN_ALL SUBGROUP_OF_HOMOMORPHIC_IMAGE" ring_hom_imp_group_hom).
+  by rewrite ring_carrier_eq CARRIER_SUBGROUP_OF.
+rewrite !IN_IMAGE => [] [] [x' xh] [y' yh].
+exists `ring_mul R x' y'`.
+by rewrite ring_mul_in // ring_hom_mul.
+Qed.
+
+Theorem first_ring_isomorphism_theorem :
+	`?F. ring_isomorphism (quotient_ring R (ring_kernel (R, R') f),
+                                subring_generated R' (IMAGE f (ring_carrier R))) F`.
+
+
+
